@@ -21,7 +21,7 @@ def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp
 options = HandLandmarkerOptions(
     base_options=mp.tasks.BaseOptions(model_asset_path='hand_landmarker.task'),
     running_mode=VisionRunningMode.LIVE_STREAM,
-    num_hands=4,                    # these belong inside HandLandmarkerOptions,
+    num_hands=2,                    # these belong inside HandLandmarkerOptions,
     min_tracking_confidence=0.7, 
     result_callback=print_result)
 
