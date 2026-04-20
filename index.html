@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Painter</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif;}
+        #webcam { display: none; /* Hide the raw video, we will pipe it into Three.js */ }
+        #ui { position: absolute; color: white; top: 20px; left: 20px; text-shadow: 1px 1px 2px black; pointer-events: none;}
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <h2 style="margin:0;">3D Paint!!</h2>
+        <div id="loading" style="color:#ffb92d;">Starting up...</div>
+    </div>
+    
+    <video id="webcam" autoplay playsinline></video>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs";
+
+        //three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        //Lighting setup
+        const light = new THREE.DirectionalLight(0xffffff, 2);
+        light.position.set(0, 5, 10);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+        //Parent group to hold drawing
+        const drawingGroup = new THREE.Group();
+        scene.add(drawingGroup);
+
+        //Finger pointer
+        const cursorGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+        const cursorMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const cursorMesh = new THREE.Mesh(cursorGeometry, cursorMaterial);
+        scene.add(cursorMesh);
+
+        //setup (inverted) webcam
+        const video = document.getElementById('webcam');
+        navigator.mediaDevices.getUserMedia({ video: { width: 1920, height: 1080 } }).then((stream) => {
+            video.srcObject = stream;
+            video.play();
+            
+            //put webcam feed as background
+            const videoTexture = new THREE.VideoTexture(video);
+            videoTexture.colorSpace = THREE.SRGBColorSpace;
+            
+            //mirror
+            videoTexture.wrapS = THREE.RepeatWrapping;
+            videoTexture.repeat.x = -1; 
+            
+            scene.background = videoTexture;
+        });
+
+        //Trackers
+        let currentPoints = [];
+        let currentLineMesh = null;
+        let isDrawing = false;
+        const randomColor = Math.random() * 0xffffff;
+        const brushMaterial = new THREE.MeshStandardMaterial({ color: randomColor, roughness: 0.5 });
+
+        //Math Helper: Map a number from one range to another (like np.interp)
+        function mapRange(val, inMin, inMax, outMin, outMax) {
+            const mapped = (val - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+            return Math.max(Math.min(mapped, Math.max(outMin, outMax)), Math.min(outMin, outMax)); // clamp
+        }
+
+        //Mediapipe initialization
+        let handLandmarker;
+        async function initializeAI() {
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+            handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                    delegate: "GPU"
+                },
+                runningMode: "VIDEO",
+                numHands: 1
+            });
+            document.getElementById('loading').style.color = "#00ff00";
+            document.getElementById('loading').innerText = "Paint with index finger \n Press e to export to a gLTF file";
+            renderLoop(); 
+        }
+        initializeAI();
+
+        //drawing loop
+        let lastVideoTime = -1;
+
+        function renderLoop() {
+            requestAnimationFrame(renderLoop);
+
+            //Process tracking when webcam updates
+            if (video.currentTime !== lastVideoTime && handLandmarker && video.readyState >= 2 && video.videoWidth > 0) {
+                lastVideoTime = video.currentTime;
+                const results = handLandmarker.detectForVideo(video, performance.now());
+
+                if (results.landmarks.length > 0) {
+                    const lm = results.landmarks[0]; 
+
+                    //Calculate Depth (Distance between knuckle 5 and 17)
+                    const dx = lm[17].x - lm[5].x;
+                    const dy = lm[17].y - lm[5].y;
+                    const rawDepth = Math.sqrt(dx * dx + dy * dy); 
+                    
+                    //Map raw depth (approx 0.05 to 0.3) to Z space (40 to 10)
+                    const world_z = mapRange(rawDepth, 0.05, 0.3, 50, 10);
+
+                    //3D math
+                    const fov_radians = (camera.fov / 2) * (Math.PI / 180);
+                    const visible_h = world_z * Math.tan(fov_radians) * 2;
+                    const visible_w = visible_h * camera.aspect;
+
+                    //flip x to account for inverse webcam
+                    const world_x = -((lm[8].x) - 0.5) * visible_w;
+                    const world_y = -((lm[8].y) - 0.5) * visible_h;
+
+                    const currentPos = new THREE.Vector3(world_x, world_y, -world_z);
+
+                    // Force the red cursor to always follow our calculated position
+                    cursorMesh.position.copy(currentPos);
+
+                    // Index Up: Tip (8) is higher than the base knuckle (5)
+                    const indexUp = lm[8].y < lm[5].y; 
+                    
+                    //Middle Down: Tip (12) is lower than the middle joint (10)
+                    const middleDown = lm[12].y > lm[10].y; 
+
+                    if (indexUp && middleDown) {
+                        if (!isDrawing) {
+                            // Start a new line
+                            isDrawing = true;
+                            currentPoints = [currentPos.clone()];
+                            cursorMesh.material.color.setHex(randomColor);
+                        } else {
+                            //Only add a point if we moved enough to prevent it getting messy
+                            const lastPoint = currentPoints[currentPoints.length - 1];
+                            if (currentPos.distanceTo(lastPoint) > 0.1) {
+                                currentPoints.push(currentPos.clone());
+                                updateSplineMesh();
+                            }
+                        }
+                    } else {
+                        // Stop drawing
+                        if (isDrawing) {
+                            isDrawing = false;
+                            currentLineMesh = null; // Detach from current mesh, ready for a new one
+                            cursorMesh.material.color.setHex(0xff0000); // Red cursor when paused
+                        }
+                    }
+                }
+            }
+
+            //Render the 3D scene
+            renderer.render(scene, camera);
+        }
+
+        // spline generation
+        function updateSplineMesh() {
+            //at least 2 points to draw a curve
+            if (currentPoints.length < 2) return;
+
+            //ts is the WHOLE reason for switching to three.js
+            const curve = new THREE.CatmullRomCurve3(currentPoints);
+            
+            //generate the 3D Tube along that path
+            const geometry = new THREE.TubeGeometry(curve, currentPoints.length * 2, 0.4, 8, false);
+
+            if (!currentLineMesh) {
+                // If this is the start of a stroke, create the Mesh and add it
+                currentLineMesh = new THREE.Mesh(geometry, brushMaterial);
+                drawingGroup.add(currentLineMesh);
+            } else {
+                //If we are continuing a stroke, swap out the old geometry for the new longer one
+                currentLineMesh.geometry.dispose();//clear memory
+                currentLineMesh.geometry = geometry;
+            }
+        }
+
+        //window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
