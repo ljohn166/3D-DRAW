@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
 import math
+import numpy as np
 from mediapipe.tasks.python import vision
 
 class handDetector():
@@ -29,7 +30,7 @@ class handDetector():
         self.landmarker.detect_async(mp_image, timestamp_ms)  #replaces hands.process(), results go to callback
 
         if draw and self.latest_result and self.latest_result.hand_landmarks:
-            h, w, _ = frame.shape                                      
+            h, w, _ = frame.shape                                  
             for hand in self.latest_result.hand_landmarks:                   
                 for lm in hand:                                           
                     cv2.circle(frame, (int(lm.x*w), int(lm.y*h)), 5, (0,255,0), -1) 
@@ -46,14 +47,15 @@ class handDetector():
         self.lmList = []
         bbox = []
         if self.latest_result and self.latest_result.hand_landmarks:
-            h, w, _ = frame.shape
+            h, w, c = frame.shape
             hand = self.latest_result.hand_landmarks[handNum]
             xList, yList = [], []
             for id, lm in enumerate(hand):
                 cx, cy = int(lm.x * w), int(lm.y * h)
+                cz = lm.z
                 xList.append(cx)
                 yList.append(cy)
-                self.lmList.append([id, cx, cy])
+                self.lmList.append([id, cx, cy, cz])
                 if draw:
                     cv2.circle(frame, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
             xmin, xmax = min(xList), max(xList)
@@ -67,7 +69,8 @@ class handDetector():
         fingers = []
         if len(lmList) == 0:
             return fingers
-        fingers.append(1 if lmList[self.tipIDs[0]][1] > lmList[self.tipIDs[0]-1][1] else 0)
+        #must change to >
+        fingers.append(1 if lmList[self.tipIDs[0]][1] < lmList[self.tipIDs[0]-1][1] else 0)
         for id in range(1, 5):
             fingers.append(1 if lmList[self.tipIDs[id]][2] < lmList[self.tipIDs[id]-2][2] else 0)
         return fingers 
@@ -83,6 +86,16 @@ class handDetector():
             cv2.circle(frame, (cx,cy), 15, (255,0,255), cv2.FILLED)
         length = math.hypot(x2-x1, y2-y1)
         return length, frame, [x1, y1, x2, y2, cx, cy]
+    
+    def findDepth(self, lmList):
+        if len(lmList) == 0:
+            return 0
+        #put landmarks on points 5 & 7 for palm width estimation
+        x1, y1 = lmList[5][1], lmList[5][2]
+        x2, y2 = lmList[17][1], lmList[17][2]
+        #pixel distance
+        px_dist = math.hypot(x2-x1, y2-y1)
+        return px_dist
 
 
 

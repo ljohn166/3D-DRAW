@@ -48,8 +48,8 @@ while True:
 
     if len(lmList) >= 21:
         #tip of index & mid finger
-        x1, y1 = lmList[8][1:]
-        x2, y2 = lmList[12][1:]
+        x1, y1 = lmList[8][1], lmList[8][2]
+        x2, y2 = lmList[12][1], lmList[12][2]
         #check which finger is up
         fingers = detector.fingersUp(lmList)
 
@@ -93,6 +93,7 @@ while True:
                         brush_size = 23
                     else:
                         brush_size = 12
+                        
                 prev_selection = current_selection
 
             else:
