@@ -54,9 +54,13 @@ def update():
     #convert the opencv bgr to ursina rgb and put it on background
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     h, w, _ = image.shape
+    #finding physical size of camera
+    fov_radians = math.radians(camera.fov / 2)
+    bg_h = 50 * math.tan(fov_radians) * 2
+    bg_w = bg_h * camera.aspect_ratio
     #scaling background
-    true_ratio = w/h
-    video_bg.scale = (36.4 * true_ratio, 36.4)
+    #true_ratio = w/h
+    video_bg.scale = (bg_w, bg_h)
 
     #must convert numpy array to a PIL image so it can be read by ursina
     pil_image = Image.fromarray(image_rgb)
@@ -73,9 +77,9 @@ def update():
         x, y = lmList[8][1], lmList[8][2]
         raw_depth = detector.findDepth(lmList)
 
-        world_z = np.interp(raw_depth, [0, 350], [50, -10]) #bring z foward
+        world_z = np.interp(raw_depth, [0, 350], [40, 10]) #bring z foward
 
-        visible_h = world_z*0.73 #default FOV
+        visible_h = world_z*math.tan(fov_radians)*2 #default FOV
         visible_w = visible_h * camera.aspect_ratio
         #coord mapping, according to john gpt, opencv is 0-1280, ursina is -7 to 7, so must translate
         world_x = ((x/w)-0.5) * visible_w #change sensitiviy
@@ -83,6 +87,9 @@ def update():
         #map raw pixels to ursina z space, when raw depth is 50, Z becomes 5 (pushed into screen), and when its 250, z becomes -5 (pulled away)
         current_pos = Vec3(world_x, world_y, world_z)
         #print(f"Raw Hand Width: {raw_depth} | Calculated Z: {world_z}")
+        #setting up brush
+        brush_color = color.rgba32(r=rVal, g=gVal, b=bVal, a=255)
+        brush_size = 0.5
 
         #draw
         if fingers[1] == 1 and fingers[2] == 0:
@@ -90,8 +97,27 @@ def update():
             if current_stroke is None:
                 current_stroke = Entity(parent=draw_anchor)
                 prev_pos = current_pos
+                #create starting sphere
+                Entity(model='sphere', color=brush_color, scale=brush_size,
+                       position=current_pos, parent=current_stroke, shader=lit_with_shadows_shader)
+                
+            else:
+                dist = (current_pos - prev_pos).length()
 
-            #linear interpretation, draws filler spheres so it doesnt look dotted
+                #only draw if finger moves
+                if dist > 0.08:
+                    midpoint = (current_pos + prev_pos)/2
+                    #create a cylinder to bridge gaps
+                    tube = Entity(model=Cylinder(resolution=8, direction=(0,0,1)), color=brush_color, scale=brush_size, position=midpoint,
+                                  parent=current_stroke, shader=lit_with_shadows_shader)
+                    tube.look_at(current_pos) #point at finger
+                    tube.scale = (brush_size, brush_size, dist) #stretch to fit
+                    #make a sphere to make better corners
+                    Entity(model="sphere", color=brush_color, scale=brush_size,
+                           position=current_pos, parent=current_stroke, shader=lit_with_shadows_shader)
+                    
+                    prev_pos = current_pos
+            '''#linear interpretation, draws filler spheres so it doesnt look dotted
             distance = (current_pos - prev_pos).length()
             steps = int(distance / 0.5) + 1
 
@@ -106,7 +132,7 @@ def update():
                     position = linInter_pos,
                     parent = current_stroke,
                     shader = lit_with_shadows_shader
-                )
+                )'''
             prev_pos = current_pos
 
         #if entering selection mode
