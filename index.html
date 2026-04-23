@@ -15,7 +15,7 @@
             display: flex; flex-direction: column; gap: 10px;
         }
         .control_group {display: flex; align-items: center; justify-content: space-between; gap: 15px; }
-        button { padding: 10px, 14px; cursor: pointer; backdrop-filter: #2b2b2b; color: rgb(78, 78, 78); border: 1px solid #555; border-radius: 5px; }
+        button { padding: 6px 6px; cursor: pointer; backdrop-filter: #2b2b2b; color: rgb(78, 78, 78); border: 1px solid #555; border-radius: 5px; }
         button:hover { background: #d0d0d0; }
         #exportBtn {background: #4cad4b; color: black; font-weight: bold; }
         #exportBtn:hover { background: #10c14e; }
@@ -50,8 +50,8 @@
     </div>
     
     <div class="control-group">
-            <button id="clearBtn">Clear Canvas</button>
-            <button id="exportBtn">Export 3D Drawing to gLTF</button>
+            <button id="clearBtn"><u>C</u>lear Canvas</button>
+            <button id="exportBtn"><u>E</u>xport 3D Drawing to gLTF</button>
     </div>
 
     <video id="webcam" autoplay playsinline></video>
@@ -105,6 +105,11 @@
         let currentPoints = [];
         let currentLineMesh = null;
         let isDrawing = false;
+        //for straight line feature
+        let lastMoveTime = 0;
+        let snapped = false;
+        let fistTime = 0;
+        let holdingFist = false;
 
         let currentBrushSize = parseFloat(document.getElementById('sizeSlider').value);
         const randomColor = Math.random() * 0xffffff;
@@ -135,6 +140,15 @@
             }, (error) => { console.error('Export failed:', error); }, {binary: true});
         });
 
+        window.addEventListener('keydown', (event) => {
+            if (event.key.toLowerCase() === 'c'){
+                document.getElementById('clearBtn').click();
+            }
+            if (event.key.toLowerCase() === 'e'){
+                document.getElementById('exportBtn').click();
+            }
+        })
+
 
         //Math Helper: Map a number from one range to another (like np.interp)
         function mapRange(val, inMin, inMax, outMin, outMax) {
@@ -155,13 +169,15 @@
                 numHands: 1
             });
             document.getElementById('loading').style.color = "#00ff00";
-            document.getElementById('loading').innerText = "Paint with index finger";
+            document.getElementById('loading').innerText = "Paint with index finger, hold up middle finger to stop painting, and hold a fist to rotate. Keep hand in frame";
             renderLoop(); 
         }
         initializeAI();
 
         //drawing loop
         let lastVideoTime = -1;
+        let isGrabbing = false;
+        let lastGrabPos = new THREE.Vector2();
 
         function renderLoop() {
             requestAnimationFrame(renderLoop);
@@ -198,33 +214,117 @@
 
                     // Index Up: Tip (8) is higher than the base knuckle (5)
                     const indexUp = lm[8].y < lm[5].y; 
-                    
                     //Middle Down: Tip (12) is lower than the middle joint (10)
                     const middleDown = lm[12].y > lm[10].y; 
+                    const drawingGesture = indexUp && middleDown
+                    //fist (for rotation)
+                    const indexCurl = lm[8].y > lm[5].y;
+                    const ringCurl = lm[16].y > lm[13].y;
+                    const pinkyCurl = lm[20].y > lm[17].y;
+                    const isFist = indexCurl && middleDown && ringCurl && pinkyCurl;
 
-                    if (indexUp && middleDown) {
+                    if (drawingGesture && !isFist) {
+                        isGrabbing = false;
+                        holdingFist = false;
+                        if (!snapped) cursorMesh.material.color.setHex(0x00ff00);
+                        const localPos = drawingGroup.worldToLocal(currentPos.clone());
+
                         if (!isDrawing) {
                             // Start a new line
                             isDrawing = true;
-                            currentPoints = [currentPos.clone()];
+                            currentPoints = [localPos];
                             cursorMesh.material.color.setHex(randomColor);
-                        } else {
-                            //Only add a point if we moved enough to prevent it getting messy
-                            const lastPoint = currentPoints[currentPoints.length - 1];
-                            if (currentPos.distanceTo(lastPoint) > 0.1) {
-                                currentPoints.push(currentPos.clone());
+                            lastMoveTime = performance.now()
+                            snapped = false;
+                        } 
+                        else {
+                            if (snapped){
+                                currentPoints = [currentPoints[0], localPos];
                                 updateSplineMesh();
                             }
+                            else {
+                                const lastPoint = currentPoints[currentPoints.length - 1];
+                                const dist = localPos.distanceTo(lastPoint);
+                                //Only add a point if we moved enough to prevent it getting messy
+                            
+                                if (dist > 0.1) {
+                                    currentPoints.push(localPos);
+                                    updateSplineMesh();
+                                    lastMoveTime = performance.now()
+                                }
+                                else{
+                                    if (performance.now() - lastMoveTime > 700){
+                                        currentPoints = [currentPoints[0], localPos];
+                                        updateSplineMesh();
+                                        snapped = true;
+                                        cursorMesh.material.color.setHex(0xffffff);
+                                    }
+                                }
+                            }
                         }
-
                         //calculate roation from 6 and 18 
-                    } else {
+                    } 
+                    else if (isFist) {
+                        isDrawing = false;
+                        currentLineMesh = null;
+                        
+                        if (!holdingFist) {
+                            holdingFist = true;
+                            fistTime = performance.now();
+                            cursorMesh.material.color.setHex(0xffaa00);
+                            isGrabbing = false;
+                        }
+                        else {
+                            if (performance.now() - fistTime > 1200) {
+                                cursorMesh.material.color.setHex(0xffffff);
+
+                                if (!isGrabbing) {
+                                    isGrabbing = true;
+                                    lastGrabPos.set(lm[8].x, lm[8].y);
+
+                                    if (drawingGroup.children.length > 0) {
+                                        // Make a bounding box
+                                        const box = new THREE.Box3().setFromObject(drawingGroup);
+                                        const worldCenter = new THREE.Vector3();
+                                        box.getCenter(worldCenter);
+                                        
+                                        // Find where world center is in group
+                                        const localCenter = drawingGroup.worldToLocal(worldCenter.clone());
+                                        
+                                        // Shift strokes slightly back
+                                        for (let child of drawingGroup.children) {
+                                            child.position.sub(localCenter);
+                                        }
+                                        drawingGroup.position.copy(worldCenter);
+                                    }
+                                }
+                                else { 
+                                    // Find how far hand moved on screen
+                                    const movX = lm[8].x - lastGrabPos.x;
+                                    const movY = lm[8].y - lastGrabPos.y;
+                                    
+                                    // Apply movement to rotation (change for sensitivity)
+                                    drawingGroup.rotation.y += movX * -6;
+                                    drawingGroup.rotation.x += movY * 6;
+
+                                    lastGrabPos.set(lm[8].x, lm[8].y);
+                                }
+                            }
+                            else {
+                                cursorMesh.material.color.setHex(0xffaa00);
+                            }
+                        }
+                    }
+                    else {
+                        isGrabbing = false;
+                        holdingFist = false;
+                        
                         // Stop drawing
                         if (isDrawing) {
                             isDrawing = false;
                             currentLineMesh = null; // Detach from current mesh, ready for a new one
-                            cursorMesh.material.color.setHex(0xff0000); // Red cursor when paused
                         }
+                        cursorMesh.material.color.setHex(0xff0000); // Red cursor when paused
                     }
                 }
             }
@@ -241,7 +341,7 @@
             //ts is the WHOLE reason for switching to three.js
             const curve = new THREE.CatmullRomCurve3(currentPoints);
             
-            //generate the 3D Tube along that path
+            //generate the 3D Tube along the path
             const geometry = new THREE.TubeGeometry(curve, currentPoints.length * 2, currentBrushSize, 8, false);
 
             if (!currentLineMesh) {
@@ -249,7 +349,7 @@
                 currentLineMesh = new THREE.Mesh(geometry, brushMaterial);
                 drawingGroup.add(currentLineMesh);
             } else {
-                //If we are continuing a stroke, swap out the old geometry for the new longer one
+                //If continuing a stroke, swap out the old geometry for the new longer one
                 currentLineMesh.geometry.dispose();//clear memory
                 currentLineMesh.geometry = geometry;
             }
