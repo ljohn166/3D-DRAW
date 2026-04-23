@@ -110,6 +110,7 @@
         let snapped = false;
         let fistTime = 0;
         let holdingFist = false;
+        let drawTime = 0;
 
         let currentBrushSize = parseFloat(document.getElementById('sizeSlider').value);
         const randomColor = Math.random() * 0xffffff;
@@ -247,13 +248,13 @@
                                 const dist = localPos.distanceTo(lastPoint);
                                 //Only add a point if we moved enough to prevent it getting messy
                             
-                                if (dist > 0.1) {
+                                if (dist > 0.23) {
                                     currentPoints.push(localPos);
                                     updateSplineMesh();
                                     lastMoveTime = performance.now()
                                 }
                                 else{
-                                    if (performance.now() - lastMoveTime > 700){
+                                    if (performance.now() - lastMoveTime > 500){
                                         currentPoints = [currentPoints[0], localPos];
                                         updateSplineMesh();
                                         snapped = true;
