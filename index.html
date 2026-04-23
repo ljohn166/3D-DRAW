@@ -1,3 +1,6 @@
+<!--TODO: Add 'bebubbling' smoother (to prevent yucky drawings when drawing slow). transition draw preventer to stop accidently drawing a small line
+transitioning to and from fist. Materials options like glass, chrome, plastic, etc (take advantage of three.js). Add small help popup window to 
+explain all features and controls. Add 2D lock loggle that disables z axis drawing-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +9,7 @@
     <title>3D Painter</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif;}
-        #webcam { display: none; /* Hide the raw video, we will pipe it into Three.js */ }
+        #webcam { display: none; /* Hide the raw video, we will pipe it into Three.js*/ }
         #toolbar {
             position: absolute; top: 15px; left: 15px;
             background: rgba(0,0,0,0.6);
@@ -110,7 +113,7 @@
         let snapped = false;
         let fistTime = 0;
         let holdingFist = false;
-        let drawTime = 0;
+        let drawTime = 0; 
 
         let currentBrushSize = parseFloat(document.getElementById('sizeSlider').value);
         const randomColor = Math.random() * 0xffffff;
