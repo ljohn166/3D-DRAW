@@ -1,6 +1,5 @@
 <!--TODO: Add 'bebubbling' smoother (to prevent yucky drawings when drawing slow). transition draw preventer to stop accidently drawing a small line
-transitioning to and from fist. Materials options like glass, chrome, plastic, etc (take advantage of three.js). Add small help popup window to 
-explain all features and controls. Add 2D lock loggle that disables z axis drawing-->
+transitioning to and from fist. Materials options like glass, chrome, plastic, etc (take advantage of three.js)-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,22 +8,44 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
     <title>3D Painter</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif;}
-        #webcam { display: none; /* Hide the raw video, we will pipe it into Three.js*/ }
+        #webcam { display: none; }
         #toolbar {
             position: absolute; top: 15px; left: 15px;
             background: rgba(0,0,0,0.6);
             padding: 15px; border-radius: 8px;
-            color: white; backdrop-filter: blur(5px);
+            color: white; backdrop-filter: blur(3px);
             display: flex; flex-direction: column; gap: 10px;
+            width: 250px;
+            z-index: 100;
+            transition: left 0.4s cubic-bezier(0.25, 1, 0.5, 1);
         }
         .control_group {display: flex; align-items: center; justify-content: space-between; gap: 15px; }
         button { padding: 6px 6px; cursor: pointer; backdrop-filter: #2b2b2b; color: rgb(78, 78, 78); border: 1px solid #555; border-radius: 5px; }
         button:hover { background: #d0d0d0; }
         #exportBtn {background: #4cad4b; color: black; font-weight: bold; }
         #exportBtn:hover { background: #10c14e; }
+        #clearBtn {background: #cb3e3e; color: black;}
+        #sideToggleBtn {background: #00000000; color: rgb(255, 255, 255); font-weight: bold;}
 
         #ui { position: absolute; color: white; top: 20px; left: 20px; text-shadow: 1px 1px 2px black; 
             pointer-events: none; display: flex; align-items: center; gap: 18px;}
+        
+        #helpWindow {
+            display: none; /*Hidden until clicked*/
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.3); z-index: 1000;
+            justify-content: center; align-items: center; backdrop-filter: blur(4px);
+        }
+        .modal-content {
+            background: #444444; padding: 25px; border-radius: 10px; border: 1px solid #555;
+            color: white; max-width: 400px; width: 90%; position: relative;
+            box-shadow: 0px 10px 30px rgba(0,0,0,0.5);
+        }
+        .close-btn {
+            position: absolute; top: 10px; right: 15px; color: #aaa; 
+            font-size: 24px; font-weight: bold; cursor: pointer;
+        }
+        .close-btn:hover { color: white; }
     </style>
 
     <script type="importmap">
@@ -37,27 +58,48 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
     </script>
 </head>
 <body>
-    <div id="ui">
-        <h2 style="margin:0;">3D Paint!!</h2>
-        <div id="loading" style="color:#ffb92d;">Starting up...</div>
-    </div>
 
-    <div class="control_group">
-        <label>Color:</label>
-        <input type="color" id="colorPicker" value="#00ffcc">
-    </div>
+    <div id="toolbar">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <h2 style="margin:0;">3D Paint!!</h2>
+            <span style="font-size: 12px; color: #aaa; margin-top: 2px;">
+                Click <span id="helpLinkTrigger" style="color: #9dff60; cursor: pointer; text-decoration: underline;">here</span> for feature explanation
+            </span>
+            <button id="sideToggleBtn" title="Swap Sides" style="width: 32px; height: 32px; border-radius: 30%; font-size: 16px; padding: 0;">&gt;</button>
+        </div>
+        
+        <div class="control_group">
+            <label>Color:</label>
+            <input type="color" id="colorPicker" value="#00ffcc">
+        </div>
 
-    <div class="control_group">
-        <label>Brush size:</label>
-        <input type="range" id="sizeSlider" min="0.1" max="1.5" step="0.1" value="0.4">
-    </div>
-    
-    <div class="control-group">
-            <button id="clearBtn"><u>C</u>lear Canvas</button>
-            <button id="exportBtn"><u>E</u>xport 3D Drawing to gLTF</button>
+        <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 5px;">
+            <label>Brush size: <span id="sizeValue">0.4</span></label>
+            <input type="range" id="sizeSlider" min="0.1" max="1.5" step="0.1" value="0.4" style="width: 100%;">
+        </div>
+        
+        <div class="control-group" style="gap: 8px;">
+                <button id="lockBtn" title="Shortcut: l">2D <u>L</u>ock: <b>OFF</b></button>
+                <button id="clearBtn"><u>C</u>lear Canvas</button>
+                <button id="exportBtn" style="margin-top: 6px;"><u>E</u>xport 3D Drawing to gLTF</button>
+        </div>
     </div>
 
     <video id="webcam" autoplay playsinline></video>
+
+    <div id="helpWindow">
+        <div class="modal-content">
+            <span class="close-btn" id="closeWindow">&times;</span>
+            <h3 style="margin-top:0;">Controls & Features</h3>
+            <ul style="line-height: 1.6; padding-left: 20px; margin-bottom: 0;">
+                <li><strong>Always</strong> hold hand upright when drawing and rotating ☝️</li>
+                <li><strong>Draw mode:</strong> Index finger up, middle finger down. Stop drawing by putting up your middle finger next to your index finger.</li>
+                <li><strong>Straight Line Snap:</strong> Stop moving at the end of a stroke for a second.</li>
+                <li><strong>Rotate Canvas:</strong> Make a fist and hold for 1.2 seconds (cursor turns yellow, then white). Drag hand to spin.</li>
+                <li><strong>Shortcuts:</strong> Press <b>C</b> to Clear, <b>E</b> to Export, <b>L</b> to toggle 2D Lock.</li>
+            </ul>
+        </div>
+    </div>
 
     <script type="module">
         import * as THREE from 'three';
@@ -114,6 +156,30 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
         let fistTime = 0;
         let holdingFist = false;
         let drawTime = 0; 
+        let is2dLocked = false;
+        const lockBtn = document.getElementById('lockBtn');
+        const toolbar = document.getElementById('toolbar');
+        const sideToggleBtn = document.getElementById('sideToggleBtn');
+        let toolbarLeft = true;
+
+        sideToggleBtn.addEventListener('click', () => {
+            toolbarLeft = !toolbarLeft;
+            if (toolbarLeft){
+                toolbar.style.left = '15px';
+                sideToggleBtn.innerHTML = '&gt;';
+            }
+            else {
+                toolbar.style.left = 'calc(100vw - 295px)';
+                sideToggleBtn.innerHTML = '&lt;';
+            }
+        });
+
+        lockBtn.addEventListener('click', () => {
+            is2dLocked = !is2dLocked;
+            lockBtn.innerHTML = is2dLocked ? "2D Lock: <b>ON</b>" : "2D Lock: <b>OFF</b>";
+            lockBtn.style.background = is2DLocked ? "#00ff00" : "transparent";
+            lockBtn.style.color = is2DLocked ? "black" : "white";
+        });
 
         let currentBrushSize = parseFloat(document.getElementById('sizeSlider').value);
         const randomColor = Math.random() * 0xffffff;
@@ -130,8 +196,24 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
             }
             drawingGroup.rotation.set(0,0,0);
         });
+
+        //Help modal
+        const helpWindow = document.getElementById("helpWindow");
+        document.getElementById('helpLinkTrigger').addEventListener('click', () => {
+            helpWindow.style.display = 'flex';
+        });
+        document.getElementById('closeWindow').addEventListener('click', () => {
+            helpWindow.style.display = 'none';
+        });
+        window.addEventListener('click', (event) => {
+            if (event.target === helpWindow) {
+                helpWindow.style.display = 'none';
+            }
+        });
+
         document.getElementById('sizeSlider').addEventListener('input', (e) => {
             currentBrushSize = parseFloat(e.target.value);
+            document.getElementById('sizeValue').innerText = currentBrushSize.toFixed(1);
         });
         document.getElementById('exportBtn').addEventListener('click', () => {
             const exporter = new GLTFExporter();
@@ -151,8 +233,10 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
             if (event.key.toLowerCase() === 'e'){
                 document.getElementById('exportBtn').click();
             }
+            if (event.key.toLowerCase() === 'l'){
+                document.getElementById('lockBtn').click();
+            }
         })
-
 
         //Math Helper: Map a number from one range to another (like np.interp)
         function mapRange(val, inMin, inMax, outMin, outMax) {
@@ -173,8 +257,7 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
                 numHands: 1
             });
             document.getElementById('loading').style.color = "#00ff00";
-            document.getElementById('loading').innerText = "Paint with index finger, hold up middle finger to stop painting, and hold a fist to rotate. Keep hand in frame";
-            renderLoop(); 
+            document.getElementById('loading').innerHTML = "Tracking active";
         }
         initializeAI();
 
@@ -201,17 +284,19 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
                     
                     //Map raw depth (approx 0.05 to 0.3) to Z space (40 to 10)
                     const world_z = mapRange(rawDepth, 0.05, 0.3, 50, 10);
-
+                    
+                    //if 2d locked, force depth to 25 (middle)
+                    const active_z = is2dLocked ? 35 : world_z;
                     //3D math
                     const fov_radians = (camera.fov / 2) * (Math.PI / 180);
-                    const visible_h = world_z * Math.tan(fov_radians) * 2;
+                    const visible_h = active_z * Math.tan(fov_radians) * 2;
                     const visible_w = visible_h * camera.aspect;
 
                     //flip x to account for inverse webcam
                     const world_x = -((lm[8].x) - 0.5) * visible_w;
                     const world_y = -((lm[8].y) - 0.5) * visible_h;
 
-                    const currentPos = new THREE.Vector3(world_x, world_y, -world_z);
+                    const currentPos = new THREE.Vector3(world_x, world_y, -active_z);
 
                     // Force the red cursor to always follow our calculated position
                     cursorMesh.position.copy(currentPos);
@@ -308,8 +393,8 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
                                     const movY = lm[8].y - lastGrabPos.y;
                                     
                                     // Apply movement to rotation (change for sensitivity)
-                                    drawingGroup.rotation.y += movX * -6;
-                                    drawingGroup.rotation.x += movY * 6;
+                                    drawingGroup.rotation.y += movX * -6.5;
+                                    drawingGroup.rotation.x += movY * 6.5;
 
                                     lastGrabPos.set(lm[8].x, lm[8].y);
                                 }
@@ -364,7 +449,11 @@ explain all features and controls. Add 2D lock loggle that disables z axis drawi
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            if (!toolbarLeft) {
+                toolbar.style.left = 'calc(100vw - 295px)';
+            }
         });
+        renderLoop();
     </script>
 </body>
 </html>
