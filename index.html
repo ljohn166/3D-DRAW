@@ -74,10 +74,20 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
         </div>
 
         <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 5px;">
-            <label>Brush size: <span id="sizeValue">0.4</span></label>
+            <label>Brush size: <span id="sizeValue">0.5</span></label>
             <input type="range" id="sizeSlider" min="0.1" max="1.5" step="0.1" value="0.4" style="width: 100%;">
         </div>
-        
+
+        <div class="control_group" style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+            <label>Material:</label>
+            <select id="materialPicker" style="background: #333; color: white; border: 1px solid #555; border-radius: 5px; padding: 4px; flex-grow: 1; margin-left: 10px;">
+                <option value="clay">Matte Clay</option>
+                <option value="plastic">Glossy Plastic</option>
+                <option value="chrome">Liquid Chrome</option>
+                <option value="glass">Tinted Glass</option>
+            </select>
+        </div>
+
         <div class="control-group" style="gap: 8px;">
                 <button id="lockBtn" title="Shortcut: l">2D <u>L</u>ock: <b>OFF</b></button>
                 <button id="clearBtn"><u>C</u>lear Canvas</button>
@@ -104,6 +114,7 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
     <script type="module">
         import * as THREE from 'three';
         import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+        //import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
         import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs";
         //TODO: add clear canvas, change brush size, change color, 3d export, fist to rotate
         //three.js setup
@@ -117,7 +128,15 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
         const light = new THREE.DirectionalLight(0xffffff, 2);
         light.position.set(0, 5, 10);
         scene.add(light);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+        //optional room envioronment setup
+        /*const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        pmremGenerator.compileEquirectangularShader();
+        scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;*/
+        //glint light to make glass look niice
+        const glintLight = new THREE.PointLight(0xffffff, 3);
+        glintLight.position.set(20, 20, 20);
+        scene.add(glintLight);
 
         //Parent group to hold drawing
         const drawingGroup = new THREE.Group();
@@ -182,12 +201,15 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
         });
 
         let currentBrushSize = parseFloat(document.getElementById('sizeSlider').value);
-        const randomColor = Math.random() * 0xffffff;
-        const brushMaterial = new THREE.MeshStandardMaterial({ color: randomColor, roughness: 0.5 });
-
-        document.getElementById('colorPicker').addEventListener('input', (e) => {
-            brushMaterial.color.set(e.target.value);
+        let currentMaterial = document.getElementById('materialPicker').value;
+        document.getElementById('materialPicker').addEventListener('change', (e) => {
+            currentMaterial = e.target.value;
         });
+        //generate a random color for the start
+        const startColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+        document.getElementById('colorPicker').value = startColor;
+        //const randomColor = Math.random() * 0xffffff;
+
         document.getElementById('clearBtn').addEventListener('click', () => {
             while (drawingGroup.children.length > 0){
                 const mesh = drawingGroup.children[0];
@@ -266,6 +288,30 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
         let isGrabbing = false;
         let lastGrabPos = new THREE.Vector2();
 
+        function createBrushMaterial(hexColor, type){
+            if (type === 'chrome') {
+                return new THREE.MeshStandardMaterial({ 
+                    color: hexColor, roughness: 0.1, metalness: 1.0
+                });
+            }
+            else if (type === 'glass'){
+                return new THREE.MeshPhysicalMaterial({ 
+                    color: hexColor, roughness: 0.03, transmission: 0.95, thickness: 1.0, ior: 1.5, clearcoat: 1.0, clearcoatRoughness: 0.1, transparent: true
+                });
+            }
+            else if (type === 'plastic') {
+                return new THREE.MeshStandardMaterial({ 
+                    color: hexColor, roughness: 0.2, metalness: 0.0 
+                });
+            }
+            else {
+                //default clay material
+                return new THREE.MeshStandardMaterial({ 
+                    color: hexColor, roughness: 0.6, metalness: 0.1 
+                });
+            }
+        }
+
         function renderLoop() {
             requestAnimationFrame(renderLoop);
 
@@ -322,7 +368,8 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
                             // Start a new line
                             isDrawing = true;
                             currentPoints = [localPos];
-                            cursorMesh.material.color.setHex(randomColor);
+                            const currentColor = document.getElementById('colorPicker').value;
+                            cursorMesh.material.color.set(currentColor);
                             lastMoveTime = performance.now()
                             snapped = false;
                         } 
@@ -434,10 +481,13 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
             const geometry = new THREE.TubeGeometry(curve, currentPoints.length * 2, currentBrushSize, 8, false);
 
             if (!currentLineMesh) {
+                const currentColor = document.getElementById('colorPicker').value;
+                const newMaterial = createBrushMaterial(currentColor, currentMaterial);
                 // If this is the start of a stroke, create the Mesh and add it
-                currentLineMesh = new THREE.Mesh(geometry, brushMaterial);
+                currentLineMesh = new THREE.Mesh(geometry, newMaterial);
                 drawingGroup.add(currentLineMesh);
-            } else {
+            } 
+            else {
                 //If continuing a stroke, swap out the old geometry for the new longer one
                 currentLineMesh.geometry.dispose();//clear memory
                 currentLineMesh.geometry = geometry;
