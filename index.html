@@ -1,5 +1,3 @@
-<!--TODO: Add 'bebubbling' smoother (to prevent yucky drawings when drawing slow). transition draw preventer to stop accidently drawing a small line
-transitioning to and from fist. Materials options like glass, chrome, plastic, etc (take advantage of three.js)-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,6 +24,8 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
         #exportBtn:hover { background: #10c14e; }
         #clearBtn {background: #cb3e3e; color: black;}
         #sideToggleBtn {background: #00000000; color: rgb(255, 255, 255); font-weight: bold;}
+        #undoBtn {background: #00000000; color: rgb(255, 255, 255); font-weight: bold;}
+        #redoBtn {background: #00000000; color: rgb(255, 255, 255); font-weight: bold;}
 
         #ui { position: absolute; color: white; top: 20px; left: 20px; text-shadow: 1px 1px 2px black; 
             pointer-events: none; display: flex; align-items: center; gap: 18px;}
@@ -61,9 +61,9 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
 
     <div id="toolbar">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-            <h2 style="margin:0;">3D Paint!!</h2>
+            <h2 style="margin:0;">3D Paint!</h2>
             <span style="font-size: 12px; color: #aaa; margin-top: 2px;">
-                Click <span id="helpLinkTrigger" style="color: #9dff60; cursor: pointer; text-decoration: underline;">here</span> for feature explanation
+                Click <span id="helpLinkTrigger" style="color: #9dff60; cursor: pointer; text-decoration: underline;">here</span> for features and controls
             </span>
             <button id="sideToggleBtn" title="Swap Sides" style="width: 32px; height: 32px; border-radius: 30%; font-size: 16px; padding: 0;">&gt;</button>
         </div>
@@ -85,6 +85,7 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
                 <option value="plastic">Glossy Plastic</option>
                 <option value="chrome">Liquid Chrome</option>
                 <option value="glass">Tinted Glass</option>
+                <option value="custom">Custom...</option>
             </select>
         </div>
 
@@ -92,6 +93,29 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
                 <button id="lockBtn" title="Shortcut: l">2D <u>L</u>ock: <b>OFF</b></button>
                 <button id="clearBtn"><u>C</u>lear Canvas</button>
                 <button id="exportBtn" style="margin-top: 6px;"><u>E</u>xport 3D Drawing to gLTF</button>
+        </div>
+        <div class="control_group" style="display: flex; gap: 8px; margin-top: 8px;">
+            <button id="undoBtn" style="flex: 1;" title="Shortcut: Z">↩</button>
+            <button id="redoBtn" style="flex: 1;" title="Shortcut: Y">↪</button>
+        </div>
+
+        <div id="customMaterialToolbar" style="display: none; position: absolute; top: calc(100% + 10px); left: 0; width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; backdrop-filter: blur(3px); flex-direction: column; gap: 8px;">
+            <h3 style="margin: 0; text-align: center; color: #ffffff;">Custom Material Properties</h3>
+            
+            <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+                <label style="font-size: 13px;">Roughness: <span id="roughVal">0.20</span></label>
+                <input type="range" id="roughSlider" min="0" max="1" step="0.05" value="0.2" style="width: 100%;">
+            </div>
+            
+            <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+                <label style="font-size: 13px;">Metalness: <span id="metalVal">0.00</span></label>
+                <input type="range" id="metalSlider" min="0" max="1" step="0.05" value="0.0" style="width: 100%;">
+            </div>
+            
+            <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+                <label style="font-size: 13px;">Transparency: <span id="transVal">0.00</span></label>
+                <input type="range" id="transSlider" min="0" max="1" step="0.05" value="0.0" style="width: 100%;">
+            </div>
         </div>
     </div>
 
@@ -102,7 +126,7 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
             <span class="close-btn" id="closeWindow">&times;</span>
             <h3 style="margin-top:0;">Controls & Features</h3>
             <ul style="line-height: 1.6; padding-left: 20px; margin-bottom: 0;">
-                <li><strong>Always</strong> hold hand upright when drawing and rotating ☝️</li>
+                <li><strong>Always</strong> keep full hand in frame.</li>
                 <li><strong>Draw mode:</strong> Index finger up, middle finger down. Stop drawing by putting up your middle finger next to your index finger.</li>
                 <li><strong>Straight Line Snap:</strong> Stop moving at the end of a stroke for a second.</li>
                 <li><strong>Rotate Canvas:</strong> Make a fist and hold for 1.2 seconds (cursor turns yellow, then white). Drag hand to spin.</li>
@@ -180,6 +204,9 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
         const toolbar = document.getElementById('toolbar');
         const sideToggleBtn = document.getElementById('sideToggleBtn');
         let toolbarLeft = true;
+        let undoStack = [];
+        let redoStack = [];
+        
 
         sideToggleBtn.addEventListener('click', () => {
             toolbarLeft = !toolbarLeft;
@@ -202,9 +229,23 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
 
         let currentBrushSize = parseFloat(document.getElementById('sizeSlider').value);
         let currentMaterial = document.getElementById('materialPicker').value;
+        const customMaterialToolbar = document.getElementById('customMaterialToolbar');
         document.getElementById('materialPicker').addEventListener('change', (e) => {
             currentMaterial = e.target.value;
+            if (currentMaterial === 'custom') {
+                customMaterialToolbar.style.display = 'flex';
+            } else {
+                customMaterialToolbar.style.display = 'none';
+            }
         });
+        const updateSliderText = (sliderId, textId) => {
+            document.getElementById(sliderId).addEventListener('input', (e) => {
+                document.getElementById(textId).innerText = parseFloat(e.target.value).toFixed(2);
+            });
+        };
+        updateSliderText('roughSlider', 'roughVal');
+        updateSliderText('metalSlider', 'metalVal');
+        updateSliderText('transSlider', 'transVal');
         //generate a random color for the start
         const startColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
         document.getElementById('colorPicker').value = startColor;
@@ -218,6 +259,22 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
             }
             drawingGroup.rotation.set(0,0,0);
         });
+
+        document.getElementById('undoBtn').addEventListener('click', () => {
+            if (undoStack.length > 0) {
+                const lastStroke = undoStack.pop();
+                drawingGroup.remove(lastStroke);
+                redoStack.push(lastStroke);
+            }
+        });
+        document.getElementById('redoBtn').addEventListener('click', () => {
+            if (redoStack.length > 0) {
+                const restoredStroke = redoStack.pop();
+                drawingGroup.add(restoredStroke);
+                undoStack.push(restoredStroke);
+            }
+        }); 
+
 
         //Help modal
         const helpWindow = document.getElementById("helpWindow");
@@ -257,6 +314,12 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
             }
             if (event.key.toLowerCase() === 'l'){
                 document.getElementById('lockBtn').click();
+            }
+            if (event.key.toLowerCase() === 'z'){
+                document.getElementById('undoBtn').click();
+            }
+            if (event.key.toLowerCase() === 'y'){
+                document.getElementById('redoBtn').click();
             }
         })
 
@@ -304,6 +367,21 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
                     color: hexColor, roughness: 0.2, metalness: 0.0 
                 });
             }
+            else if (type === 'custom'){
+                const r = parseFloat(document.getElementById('roughSlider').value);
+                const m = parseFloat(document.getElementById('metalSlider').value);
+                const t = parseFloat(document.getElementById('transSlider').value);
+                return new THREE.MeshPhysicalMaterial({ 
+                    color: hexColor, 
+                    roughness: r, 
+                    metalness: m,
+                    transmission: t, 
+                    thickness: t > 0 ? 1.0 : 0, //physical glass thickness if it has transparency
+                    transparent: t > 0,         //Tell the engine it can be seen through
+                    ior: 1.5,                   //Keep the real-world glass refraction physics
+                    clearcoat: m > 0.5 ? 0 : 0.5 //Add a bit of clearcoat if it isn't pure metal
+                });
+            }
             else {
                 //default clay material
                 return new THREE.MeshStandardMaterial({ 
@@ -347,16 +425,17 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
                     // Force the red cursor to always follow our calculated position
                     cursorMesh.position.copy(currentPos);
 
+                    //math for hand landmark distance
+                    const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
                     // Index Up: Tip (8) is higher than the base knuckle (5)
-                    const indexUp = lm[8].y < lm[5].y; 
+                    const indexUp = dist(lm[0], lm[8]) > dist(lm[0], lm[5]) * 1.2;
+                    const middleUp = dist(lm[0], lm[12]) > dist(lm[0], lm[9]) * 1.2;
+                    const ringUp = dist(lm[0], lm[16]) > dist(lm[0], lm[13]) * 1.2;
+                    const pinkyUp = dist(lm[0], lm[20]) > dist(lm[0], lm[17]) * 1.2;
                     //Middle Down: Tip (12) is lower than the middle joint (10)
-                    const middleDown = lm[12].y > lm[10].y; 
-                    const drawingGesture = indexUp && middleDown
+                    const drawingGesture = indexUp && !middleUp;
                     //fist (for rotation)
-                    const indexCurl = lm[8].y > lm[5].y;
-                    const ringCurl = lm[16].y > lm[13].y;
-                    const pinkyCurl = lm[20].y > lm[17].y;
-                    const isFist = indexCurl && middleDown && ringCurl && pinkyCurl;
+                    const isFist = !indexUp && !middleUp && !ringUp && !pinkyUp;
 
                     if (drawingGesture && !isFist) {
                         isGrabbing = false;
@@ -401,6 +480,10 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
                         //calculate roation from 6 and 18 
                     } 
                     else if (isFist) {
+                        if (isDrawing && currentLineMesh) {
+                            undoStack.push(currentLineMesh);
+                            redoStack = [];
+                        }
                         isDrawing = false;
                         currentLineMesh = null;
                         
@@ -411,7 +494,7 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
                             isGrabbing = false;
                         }
                         else {
-                            if (performance.now() - fistTime > 1200) {
+                            if (performance.now() - fistTime > 1000) {
                                 cursorMesh.material.color.setHex(0xffffff);
 
                                 if (!isGrabbing) {
@@ -458,6 +541,10 @@ transitioning to and from fist. Materials options like glass, chrome, plastic, e
                         // Stop drawing
                         if (isDrawing) {
                             isDrawing = false;
+                            if (currentLineMesh){
+                                undoStack.push(currentLineMesh);
+                                redoStack = [];
+                            }
                             currentLineMesh = null; // Detach from current mesh, ready for a new one
                         }
                         cursorMesh.material.color.setHex(0xff0000); // Red cursor when paused
