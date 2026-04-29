@@ -131,6 +131,7 @@
                 <li><strong>Straight Line Snap:</strong> Stop moving at the end of a stroke for a second.</li>
                 <li><strong>Rotate Canvas:</strong> Make a fist and hold for 1.2 seconds (cursor turns yellow, then white). Drag hand to spin.</li>
                 <li><strong>Shortcuts:</strong> Press <b>C</b> to Clear, <b>E</b> to Export, <b>L</b> to toggle 2D Lock.</li>
+                <li><strong>Shortcuts:</strong> Press <b>space</b> to pick a random color.</li>
             </ul>
         </div>
     </div>
@@ -321,6 +322,22 @@
             if (event.key.toLowerCase() === 'y'){
                 document.getElementById('redoBtn').click();
             }
+            if (event.key === 'ArrowRight'){
+                if (toolbarLeft){
+                    document.getElementById('sideToggleBtn').click();
+                }        
+            }
+            if (event.key === 'ArrowLeft'){
+                if (!toolbarLeft){
+                    document.getElementById('sideToggleBtn').click();
+                }
+            }
+            if (event.code === 'Space'){
+                event.preventDefault();
+                const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                document.getElementById('colorPicker').value = randomColor;
+
+            }
         })
 
         //Math Helper: Map a number from one range to another (like np.interp)
@@ -379,7 +396,8 @@
                     thickness: t > 0 ? 1.0 : 0, //physical glass thickness if it has transparency
                     transparent: t > 0,         //Tell the engine it can be seen through
                     ior: 1.5,                   //Keep the real-world glass refraction physics
-                    clearcoat: m > 0.5 ? 0 : 0.5 //Add a bit of clearcoat if it isn't pure metal
+                    clearcoat: m > 0.5 ? 0 : 0.5, //Add a bit of clearcoat if it isn't pure metal
+                    clearcoatRoughness: r
                 });
             }
             else {
