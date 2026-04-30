@@ -126,12 +126,12 @@
             <span class="close-btn" id="closeWindow">&times;</span>
             <h3 style="margin-top:0;">Controls & Features</h3>
             <ul style="line-height: 1.6; padding-left: 20px; margin-bottom: 0;">
-                <li><strong>Always</strong> keep full hand in frame.</li>
-                <li><strong>Draw mode:</strong> Index finger up, middle finger down. Stop drawing by putting up your middle finger next to your index finger.</li>
+                <li><strong>To draw:</strong> Index finger up, middle finger down. Stop drawing by putting up your middle finger next to your index finger. Keep hand in frame and 
+                keep finger visibly extended outwards instead of pointing towards the screen. ☝️ </li>
                 <li><strong>Straight Line Snap:</strong> Stop moving at the end of a stroke for a second.</li>
                 <li><strong>Rotate Canvas:</strong> Make a fist and hold for 1.2 seconds (cursor turns yellow, then white). Drag hand to spin.</li>
                 <li><strong>Shortcuts:</strong> Press <b>C</b> to Clear, <b>E</b> to Export, <b>L</b> to toggle 2D Lock.</li>
-                <li><strong>Shortcuts:</strong> Press <b>space</b> to pick a random color.</li>
+                <li>Press <b>space</b> to pick a random color. <b>Z</b> and <b>Y</b> undo and redo</li>
             </ul>
         </div>
     </div>
@@ -279,6 +279,7 @@
 
         //Help modal
         const helpWindow = document.getElementById("helpWindow");
+        helpWindow.style.display = 'flex'; //open on site load
         document.getElementById('helpLinkTrigger').addEventListener('click', () => {
             helpWindow.style.display = 'flex';
         });
@@ -397,7 +398,7 @@
                     transparent: t > 0,         //Tell the engine it can be seen through
                     ior: 1.5,                   //Keep the real-world glass refraction physics
                     clearcoat: m > 0.5 ? 0 : 0.5, //Add a bit of clearcoat if it isn't pure metal
-                    clearcoatRoughness: r
+                    clearcoatRoughness: r //to match with roughness
                 });
             }
             else {
