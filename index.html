@@ -76,6 +76,7 @@
         <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 5px;">
             <label>Brush size: <span id="sizeValue">0.5</span></label>
             <input type="range" id="sizeSlider" min="0.1" max="1.5" step="0.1" value="0.4" style="width: 100%;">
+            <button id="optionsBtn" style="width: 100%; margin-top: 5px; font-weight: bold;">Options</button>
         </div>
 
         <div class="control_group" style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
@@ -99,24 +100,55 @@
             <button id="redoBtn" style="flex: 1;" title="Shortcut: Y">↪</button>
         </div>
 
-        <div id="customMaterialToolbar" style="display: none; position: absolute; top: calc(100% + 10px); left: 0; width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; backdrop-filter: blur(3px); flex-direction: column; gap: 8px;">
-            <h3 style="margin: 0; text-align: center; color: #ffffff;">Custom Material Properties</h3>
-            
-            <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
-                <label style="font-size: 13px;">Roughness: <span id="roughVal">0.20</span></label>
-                <input type="range" id="roughSlider" min="0" max="1" step="0.05" value="0.2" style="width: 100%;">
+        <div style="position: absolute; top: calc(100% + 10px); left: 0; width: 100%; display: flex; flex-direction: column; gap: 10px;">
+            <div id="lockToolbar" style="display: none; box-sizing: border-box; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; backdrop-filter: blur(3px); flex-direction: column; gap: 5px;">
+                <label style="font-size: 14px; color: #ffffff; font-weight: bold;">Z-Lock Point: <span id="lockZVal">35</span></label>
+                <input type="range" id="lockZSlider" min="20" max="40" step="1" value="35" style="width: 100%;">
             </div>
-            
-            <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
-                <label style="font-size: 13px;">Metalness: <span id="metalVal">0.00</span></label>
-                <input type="range" id="metalSlider" min="0" max="1" step="0.05" value="0.0" style="width: 100%;">
-            </div>
-            
-            <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
-                <label style="font-size: 13px;">Transparency: <span id="transVal">0.00</span></label>
-                <input type="range" id="transSlider" min="0" max="1" step="0.05" value="0.0" style="width: 100%;">
+            <div id="customMaterialToolbar" style="display: none; box-sizing: border-box; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; backdrop-filter: blur(3px); flex-direction: column; gap: 8px;">
+                <h3 style="margin: 0; text-align: center; color: #ffffff;">Custom Material Properties</h3>
+                
+                <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+                    <label style="font-size: 13px;">Roughness: <span id="roughVal">0.20</span></label>
+                    <input type="range" id="roughSlider" min="0" max="1" step="0.05" value="0.2" style="width: 100%;">
+                </div>
+                
+                <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+                    <label style="font-size: 13px;">Metalness: <span id="metalVal">0.00</span></label>
+                    <input type="range" id="metalSlider" min="0" max="1" step="0.05" value="0.0" style="width: 100%;">
+                </div>
+                
+                <div class="control_group" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+                    <label style="font-size: 13px;">Transparency: <span id="transVal">0.00</span></label>
+                    <input type="range" id="transSlider" min="0" max="1" step="0.05" value="0.0" style="width: 100%;">
+                </div>
             </div>
         </div>
+
+        <div id="optionsToolbar" style="display: none; position: absolute; top: 0; left: calc(100% + 10px); width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; backdrop-filter: blur(3px); flex-direction: column; gap: 8px;">
+            <span id="closeOptionsBtn" style="position: absolute; top: 10px; right: 15px; color: #aaa; font-size: 20px; font-weight: bold; cursor: pointer;">&times;</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="font-size: 14px; font-weight: bold; color: #ffffff;"><input type="checkbox" id="smoothToggle" checked> Weighted Smoothing</label>
+            </div>
+            <input type="range" id="smoothSlider" min="0.05" max="0.8" step="0.05" value="0.35" style="width: 100%; margin-top: -5px;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #555; padding-top: 10px;">
+                <label style="font-size: 14px; font-weight: bold; color: #ffffff;"><input type="checkbox" id="mirrorToggle"> Mirror</label>
+                
+                <div style="display: flex; gap: 2px; background: #222; padding: 2px; border-radius: 4px; border: 1px solid #444;">
+                    <button id="mirrorXBtn" style="width: 30px; background: #4a76c9; color: white; border: none; border-radius: 2px; cursor: pointer; padding: 4px 0;">X</button>
+                    <button id="mirrorYBtn" style="width: 30px; background: transparent; color: #ccc; border: none; border-radius: 2px; cursor: pointer; padding: 4px 0;">Y</button>
+                </div>
+            </div>
+            <div style="border-top: 1px solid #555; padding-top: 10px; display: flex; flex-direction: column; gap: 5px;">
+                <label style="font-size: 12px; color: #aaa;">Ambient Light: <span id="ambVal">1.2</span></label>
+                <input type="range" id="ambientSlider" min="0" max="3" step="0.1" value="1.2" style="width: 100%;">
+                
+                <label style="font-size: 12px; color: #aaa;">Main Light: <span id="dirVal">2.0</span></label>
+                <input type="range" id="dirSlider" min="0" max="5" step="0.1" value="2.0" style="width: 100%;">
+            </div>
+        </div>
+        
     </div>
 
     <video id="webcam" autoplay playsinline></video>
@@ -207,25 +239,85 @@
         let toolbarLeft = true;
         let undoStack = [];
         let redoStack = [];
+        let smoothedPos = new THREE.Vector3();
+        let mirrorX = true;
+        let mirrorY = false;
+
+        const btnX = document.getElementById('mirrorXBtn');
+        const btnY = document.getElementById('mirrorYBtn');
+
+        btnX.addEventListener('click', () => {
+            mirrorX = !mirrorX;
+            btnX.style.background = mirrorX ? '#4a76c9' : 'transparent';
+            btnX.style.color = mirrorX ? 'white' : '#ccc';
+        });
+
+        btnY.addEventListener('click', () => {
+            mirrorY = !mirrorY;
+            btnY.style.background = mirrorY ? '#4a76c9' : 'transparent';
+            btnY.style.color = mirrorY ? 'white' : '#ccc';
+        });
         
 
         sideToggleBtn.addEventListener('click', () => {
             toolbarLeft = !toolbarLeft;
+            const optionsPanel = document.getElementById('optionsToolbar');
+            //move main ui and options if active
             if (toolbarLeft){
                 toolbar.style.left = '15px';
                 sideToggleBtn.innerHTML = '&gt;';
+                optionsPanel.style.left = 'calc(100% + 10px)';
+                optionsPanel.style.right = 'auto';
             }
             else {
                 toolbar.style.left = 'calc(100vw - 295px)';
                 sideToggleBtn.innerHTML = '&lt;';
+                optionsPanel.style.left = 'auto';
+                optionsPanel.style.right = 'calc(100% + 10px)';
             }
         });
+        
+        let lockZamt = 35;
+        const lockToolbar = document.getElementById('lockToolbar');
 
         lockBtn.addEventListener('click', () => {
             is2dLocked = !is2dLocked;
             lockBtn.innerHTML = is2dLocked ? "2D Lock: <b>ON</b>" : "2D Lock: <b>OFF</b>";
-            lockBtn.style.background = is2DLocked ? "#00ff00" : "transparent";
-            lockBtn.style.color = is2DLocked ? "black" : "white";
+            lockBtn.style.background = is2dLocked ? "#ffffff" : "transparent";
+            lockBtn.style.color = is2dLocked ? "black" : "white";
+            lockToolbar.style.display = is2dLocked ? 'flex' : 'none';
+            //if (is2dLocked) document.getElementById('optionsToolbar').style.display = 'none'; //close options if active, maybe change 
+        });
+        document.getElementById('lockZSlider').addEventListener('input', (e) => {
+            lockZamt = parseFloat(e.target.value);
+            document.getElementById('lockZVal').innerText = lockZamt;
+        });
+
+        let smoothing = true;
+        let smoothWeight = 0.30;
+        let mirror = false;
+
+        document.getElementById('optionsBtn').addEventListener('click', () => {
+            const panel = document.getElementById('optionsToolbar');
+            panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+            //if (panel.style.display === 'flex') lockToolbar.style.display = 'none';
+        });
+
+        document.getElementById('closeOptionsBtn').addEventListener('click', () => {
+            document.getElementById('optionsToolbar').style.display = 'none';
+        });
+
+        document.getElementById('smoothToggle').addEventListener('change', (e) => smoothing = e.target.checked);
+        document.getElementById('smoothSlider').addEventListener('input', (e) => smoothWeight = parseFloat(e.target.value));
+        document.getElementById('mirrorToggle').addEventListener('change', (e) => mirror = e.target.checked);
+        //lighting setup
+        document.getElementById('ambientSlider').addEventListener('input', (e) => {
+            scene.children.find(c => c.type === "AmbientLight").intensity = parseFloat(e.target.value);
+            document.getElementById('ambVal').innerText = parseFloat(e.target.value).toFixed(1);
+        });
+        document.getElementById('dirSlider').addEventListener('input', (e) => {
+            light.intensity = parseFloat(e.target.value);
+            document.getElementById('dirVal').innerText = parseFloat(e.target.value).toFixed(1);
         });
 
         let currentBrushSize = parseFloat(document.getElementById('sizeSlider').value);
@@ -253,12 +345,17 @@
         //const randomColor = Math.random() * 0xffffff;
 
         document.getElementById('clearBtn').addEventListener('click', () => {
-            while (drawingGroup.children.length > 0){
-                const mesh = drawingGroup.children[0];
-                drawingGroup.remove(mesh);
-                mesh.geometry.dispose();
-            }
+            drawingGroup.traverse((child) => {
+                if (child.isMesh) {
+                    child.geometry.dispose();
+                }
+            });
+            //instantly empty a group
+            drawingGroup.clear(); 
             drawingGroup.rotation.set(0,0,0);
+            //Wipe history
+            undoStack = [];
+            redoStack = [];
         });
 
         document.getElementById('undoBtn').addEventListener('click', () => {
@@ -429,7 +526,7 @@
                     const world_z = mapRange(rawDepth, 0.05, 0.3, 50, 10);
                     
                     //if 2d locked, force depth to 25 (middle)
-                    const active_z = is2dLocked ? 35 : world_z;
+                    const active_z = is2dLocked ? lockZamt : world_z;
                     //3D math
                     const fov_radians = (camera.fov / 2) * (Math.PI / 180);
                     const visible_h = active_z * Math.tan(fov_radians) * 2;
@@ -465,6 +562,7 @@
                         if (!isDrawing) {
                             // Start a new line
                             isDrawing = true;
+                            smoothedPos.copy(localPos);
                             currentPoints = [localPos];
                             const currentColor = document.getElementById('colorPicker').value;
                             cursorMesh.material.color.set(currentColor);
@@ -472,23 +570,31 @@
                             snapped = false;
                         } 
                         else {
+                            //for weighted painting
+                            if (smoothing){
+                                smoothedPos.lerp(localPos, smoothWeight);
+                            }
+                            else{
+                                smoothedPos.copy(localPos);
+                            }
+                            
                             if (snapped){
-                                currentPoints = [currentPoints[0], localPos];
+                                currentPoints = [currentPoints[0], smoothedPos.clone()];
                                 updateSplineMesh();
                             }
                             else {
                                 const lastPoint = currentPoints[currentPoints.length - 1];
-                                const dist = localPos.distanceTo(lastPoint);
+                                const dist = smoothedPos.distanceTo(lastPoint);
                                 //Only add a point if we moved enough to prevent it getting messy
                             
-                                if (dist > 0.23) {
-                                    currentPoints.push(localPos);
+                                if (dist > 0.05) {
+                                    currentPoints.push(smoothedPos.clone());
                                     updateSplineMesh();
                                     lastMoveTime = performance.now()
                                 }
                                 else{
                                     if (performance.now() - lastMoveTime > 500){
-                                        currentPoints = [currentPoints[0], localPos];
+                                        currentPoints = [currentPoints[0], smoothedPos.clone()];
                                         updateSplineMesh();
                                         snapped = true;
                                         cursorMesh.material.color.setHex(0xffffff);
@@ -589,14 +695,50 @@
             if (!currentLineMesh) {
                 const currentColor = document.getElementById('colorPicker').value;
                 const newMaterial = createBrushMaterial(currentColor, currentMaterial);
-                // If this is the start of a stroke, create the Mesh and add it
-                currentLineMesh = new THREE.Mesh(geometry, newMaterial);
+                // If this is the start of a stroke, create the Mesh and add it //parent group
+                currentLineMesh = new THREE.Group();
+                const mainTube = new THREE.Mesh(geometry, newMaterial);
+                mainTube.name = "main";
+                currentLineMesh.add(mainTube);
+                if (mirror){
+                    if (mirrorY) {
+                        const mirrorTubeX = new THREE.Mesh(geometry, newMaterial);
+                        mirrorTubeX.name = "mirrorX";
+                        mirrorTubeX.scale.x = -1;
+                        currentLineMesh.add(mirrorTubeX);
+                    }
+                    if (mirrorX) {
+                        const mirrorTubeY = new THREE.Mesh(geometry, newMaterial);
+                        mirrorTubeY.name = "mirrorY";
+                        mirrorTubeY.scale.y = -1;
+                        currentLineMesh.add(mirrorTubeY);
+                    }
+                    // If both are active, we need a 4th tube mirrored across both axes diagonally
+                    if (mirrorX && mirrorY) {
+                        const mirrorTubeXY = new THREE.Mesh(geometry, newMaterial);
+                        mirrorTubeXY.name = "mirrorXY";
+                        mirrorTubeXY.scale.x = -1;
+                        mirrorTubeXY.scale.y = -1;
+                        currentLineMesh.add(mirrorTubeXY);
+                    }
+                }
                 drawingGroup.add(currentLineMesh);
             } 
             else {
-                //If continuing a stroke, swap out the old geometry for the new longer one
-                currentLineMesh.geometry.dispose();//clear memory
-                currentLineMesh.geometry = geometry;
+                const mainTube = currentLineMesh.children.find(c => c.name === "main");
+                if (mainTube) {
+                    mainTube.geometry.dispose();
+                    mainTube.geometry = geometry;
+                }
+                
+                //Update all potential mirrored tubes
+                ['mirrorX', 'mirrorY', 'mirrorXY'].forEach(name => {
+                    const tube = currentLineMesh.children.find(c => c.name === name);
+                    if (tube) {
+                        tube.geometry.dispose();
+                        tube.geometry = geometry;
+                    }
+                });
             }
         }
 
